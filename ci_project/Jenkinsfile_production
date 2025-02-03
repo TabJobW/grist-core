@@ -1,0 +1,31 @@
+pipeline {                          // Начало определения пайплайна
+    agent any                       // Запускать на любом доступном агенте Jenkins
+    environment {                   // Блок переменных окружения
+        VERSION = "mv1.0.0"         // Версия образа для production
+    }
+    stages {                        // Блок этапов пайплайна
+        stage('Checkout Production Code') {  // Этап 1: Получение кода из репозитория
+            steps {
+                git(
+                    branch: 'main_production',          // Ветка Git для production
+                    url: 'git@github-production:TabJobW/grist-core.git',  // SSH-URL репозитория
+                    credentialsId: 'production-ssh-key' // ID SSH-ключа из Jenkins Credentials
+                )
+            }
+        }
+        stage('Build Docker Image') {         // Этап 2: Сборка Docker-образа
+            steps {
+                sh 'docker build -t grist-production:${VERSION} .'  // Сборка образа с тегом из переменной VERSION
+            }
+        }
+        stage('Deploy Container') {           // Этап 3: Запуск контейнера
+            steps {
+                sh '''                        // Многострочная shell-команда
+                docker stop grist_production || true  // Остановить контейнер (если существует)
+                docker rm grist_production || true    // Удалить контейнер (если существует)
+                docker run -d --name grist_production -p 8081:80 grist-production:${VERSION}  // Запустить новый контейнер
+                '''
+            }
+        }
+    }
+}

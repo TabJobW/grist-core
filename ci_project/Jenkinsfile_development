@@ -1,0 +1,31 @@
+pipeline {
+    agent any                       // Запускать на любом доступном агенте Jenkins
+    environment {
+        VERSION = "mv1.0.0-dev"     // Версия образа для development (с суффиксом -dev)
+    }
+    stages {
+        stage('Checkout Development Code') {  // Этап 1: Получение кода из ветки разработки
+            steps {
+                git(
+                    branch: 'main_development',       // Ветка Git для разработки
+                    url: 'git@github-development:TabJobW/grist-core.git',  // SSH-URL репозитория
+                    credentialsId: 'development-ssh-key' // ID SSH-ключа для development
+                )
+            }
+        }
+        stage('Build Docker Image') {         // Этап 2: Сборка Docker-образа
+            steps {
+                sh 'docker build -t grist-development:${VERSION} .'  // Сборка образа с тегом
+            }
+        }
+        stage('Deploy Container') {           // Этап 3: Запуск контейнера
+            steps {
+                sh '''                        // Многострочная shell-команда
+                docker stop grist_development || true  // Остановить контейнер (если существует)
+                docker rm grist_development || true    // Удалить контейнер (если существует)
+                docker run -d --name grist_development -p 8082:80 grist-development:${VERSION}  // Запустить новый контейнер
+                '''
+            }
+        }
+    }
+}
